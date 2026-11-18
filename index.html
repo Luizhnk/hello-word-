@@ -1,0 +1,1613 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Atividades - Heineken</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eefaf3',
+                            100: '#d5f4e1',
+                            500: '#008248',
+                            600: '#006b3a',
+                            700: '#00542e',
+                        },
+                        star: {
+                            500: '#e32b2b',
+                            600: '#cc1f1f',
+                        },
+                        teams: {
+                            500: '#5b5fc7',
+                            600: '#464775',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .gantt-grid {
+            display: grid;
+            grid-template-columns: 240px repeat(var(--gantt-days, 30), minmax(40px, 1fr));
+        }
+        .kanban-ghost {
+            opacity: 0.4;
+            border: 2px dashed #008248 !important;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col font-sans text-slate-800 antialiased selection:bg-brand-500 selection:text-white">
+
+    <!-- HEADER DA APLICAÇÃO -->
+    <header class="bg-slate-900 border-b border-brand-700 sticky top-0 z-30 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-wrap justify-between items-center py-3.5 gap-3">
+                <!-- Logotipo Heineken -->
+                <div class="flex items-center space-x-3">
+                    <div class="flex items-center space-x-2.5">
+                        <svg class="w-8 h-8 text-star-500 fill-current drop-shadow-sm" viewBox="0 0 24 24">
+                            <path d="M12 1.75l2.85 6.43 6.95.64-5.22 4.67 1.51 6.81L12 16.77l-6.09 3.53 1.51-6.81-5.22-4.67 6.95-.64L12 1.75z"/>
+                        </svg>
+                        <span class="text-2xl font-black tracking-widest text-white uppercase font-sans">HEINEKEN</span>
+                    </div>
+                    <span class="hidden md:inline-block h-6 w-px bg-slate-700 mx-2"></span>
+                    <span class="hidden md:inline-block text-xs font-semibold tracking-wider text-emerald-400 uppercase">Gestão de Atividades</span>
+                </div>
+
+                <!-- Controles do Topo -->
+                <div class="flex items-center space-x-2.5">
+                    <button onclick="openTeamModal()" class="inline-flex items-center justify-center px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs sm:text-sm rounded-lg transition-all border border-slate-700">
+                        <i class="fa-brands fa-microsoft mr-2 text-indigo-400"></i> Usuários, Gestores & Teams
+                    </button>
+
+                    <button onclick="openTaskModal()" class="inline-flex items-center justify-center px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs sm:text-sm rounded-lg shadow-sm transition-all duration-200 hover:shadow-md border border-brand-600">
+                        <i class="fa-solid fa-plus mr-2 text-xs"></i> Nova Tarefa
+                    </button>
+                </div>
+            </div>
+
+            <!-- BARRA DE FLAGS / FILTRO RÁPIDO POR USUÁRIOS EXECUTORES -->
+            <div class="py-2.5 border-t border-slate-800/80 flex items-center space-x-2 overflow-x-auto no-scrollbar">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1 whitespace-nowrap flex items-center">
+                    <i class="fa-solid fa-filter mr-1.5 text-emerald-400"></i> Usuário:
+                </span>
+                <div id="user-flags-bar" class="flex items-center space-x-2">
+                    <!-- Flags inseridas via JS -->
+                </div>
+            </div>
+
+            <!-- Navegação por Abas -->
+            <div class="flex space-x-8 border-t border-slate-800 -mb-px overflow-x-auto custom-scrollbar">
+                <button onclick="switchTab('table')" id="tab-btn-table" class="tab-btn py-3 px-1 border-b-2 font-semibold text-sm flex items-center space-x-2 border-emerald-400 text-emerald-400 whitespace-nowrap">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span>Tabela de Tarefas</span>
+                    <span id="badge-total-tasks" class="ml-2 bg-emerald-950 text-emerald-300 border border-emerald-800 text-xs font-semibold px-2 py-0.5 rounded-full">0</span>
+                </button>
+
+                <button onclick="switchTab('gantt')" id="tab-btn-gantt" class="tab-btn py-3 px-1 border-b-2 border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600 font-semibold text-sm flex items-center space-x-2 whitespace-nowrap">
+                    <i class="fa-solid fa-chart-gantt"></i>
+                    <span>Gráfico de Gantt</span>
+                </button>
+
+                <button onclick="switchTab('kanban')" id="tab-btn-kanban" class="tab-btn py-3 px-1 border-b-2 border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600 font-semibold text-sm flex items-center space-x-2 whitespace-nowrap">
+                    <i class="fa-solid fa-table-columns"></i>
+                    <span>Quadro Kanban</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- ABA 1: TABELA DE TAREFAS -->
+        <section id="tab-table" class="tab-content space-y-4">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200/80 flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div class="relative w-full md:w-80">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                    <input type="text" id="table-search" oninput="renderAllViews()" placeholder="Buscar por nome ou descrição..." class="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all">
+                </div>
+
+                <div class="flex flex-wrap gap-2 w-full md:w-auto justify-end">
+                    <select id="filter-status" onchange="renderAllViews()" class="border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:ring-2 focus:ring-brand-500 outline-none">
+                        <option value="ALL">Todos os Status</option>
+                        <option value="A Fazer">A Fazer</option>
+                        <option value="Em Andamento">Em Andamento</option>
+                        <option value="Concluído">Concluído</option>
+                    </select>
+
+                    <select id="filter-priority" onchange="renderAllViews()" class="border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:ring-2 focus:ring-brand-500 outline-none">
+                        <option value="ALL">Todas Prioridades</option>
+                        <option value="Alta">Alta</option>
+                        <option value="Média">Média</option>
+                        <option value="Baixa">Baixa</option>
+                    </select>
+
+                    <button onclick="resetDefaultData()" class="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition" title="Restaurar dados de exemplo">
+                        <i class="fa-solid fa-rotate-left mr-1"></i> Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabela Principal -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200/80 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                            <tr>
+                                <th class="p-4">Tarefa</th>
+                                <th class="p-4">Usuário / Gestor (Teams)</th>
+                                <th class="p-4">Período / Prazos</th>
+                                <th class="p-4">Progresso</th>
+                                <th class="p-4">Prioridade</th>
+                                <th class="p-4">Status</th>
+                                <th class="p-4 text-right">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="task-table-body" class="divide-y divide-slate-100">
+                            <!-- Linhas inseridas via JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="table-empty" class="hidden p-12 text-center text-slate-400">
+                    <i class="fa-regular fa-folder-open text-4xl mb-3"></i>
+                    <p class="text-base font-medium">Nenhuma tarefa encontrada para este filtro.</p>
+                    <p class="text-xs">Crie uma nova atividade ou selecione "Todos" no filtro de usuários acima.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ABA 2: GRÁFICO DE GANTT -->
+        <section id="tab-gantt" class="tab-content hidden space-y-4">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200/80 flex flex-wrap gap-3 justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm font-semibold text-slate-700"><i class="fa-regular fa-calendar-days text-brand-500 mr-2"></i> Linha do Tempo</span>
+                    <span class="text-xs text-slate-400 hidden sm:inline">(A cor da barra acompanha o usuário executor)</span>
+                </div>
+                <div id="gantt-user-legend" class="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-600">
+                    <!-- Legenda dinâmica de cores por usuário -->
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200/80 overflow-hidden">
+                <div class="overflow-x-auto custom-scrollbar" id="gantt-scroll-container">
+                    <div id="gantt-chart-wrapper" class="min-w-[850px] p-4">
+                        <!-- Gantt renderizado via JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ABA 3: QUADRO KANBAN -->
+        <section id="tab-kanban" class="tab-content hidden">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Coluna A Fazer -->
+                <div class="bg-slate-100/70 p-4 rounded-xl border border-slate-200 flex flex-col min-h-[500px]">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-3 h-3 rounded-full bg-slate-400"></span>
+                            <h3 class="font-bold text-slate-700 text-sm">A Fazer</h3>
+                            <span id="count-todo" class="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-full font-semibold">0</span>
+                        </div>
+                    </div>
+                    <div id="kanban-todo" class="kanban-column flex-1 space-y-3" data-status="A Fazer" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+                    </div>
+                </div>
+
+                <!-- Coluna Em Andamento -->
+                <div class="bg-slate-100/70 p-4 rounded-xl border border-slate-200 flex flex-col min-h-[500px]">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-3 h-3 rounded-full bg-brand-500"></span>
+                            <h3 class="font-bold text-slate-700 text-sm">Em Andamento</h3>
+                            <span id="count-doing" class="bg-emerald-100 text-emerald-800 text-xs px-2 py-0.5 rounded-full font-semibold">0</span>
+                        </div>
+                    </div>
+                    <div id="kanban-doing" class="kanban-column flex-1 space-y-3" data-status="Em Andamento" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+                    </div>
+                </div>
+
+                <!-- Coluna Concluído -->
+                <div class="bg-slate-100/70 p-4 rounded-xl border border-slate-200 flex flex-col min-h-[500px]">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                            <h3 class="font-bold text-slate-700 text-sm">Concluído</h3>
+                            <span id="count-done" class="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full font-semibold">0</span>
+                        </div>
+                    </div>
+                    <div id="kanban-done" class="kanban-column flex-1 space-y-3" data-status="Concluído" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL DE ADICIONAR / EDITAR TAREFA -->
+    <div id="task-modal" class="fixed inset-0 z-50 hidden bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white rounded-xl shadow-xl border border-slate-100 max-w-lg w-full overflow-hidden transform transition-all my-auto">
+            <div class="flex justify-between items-center px-6 py-4 border-b border-slate-100">
+                <h3 id="modal-title" class="text-base font-bold text-slate-800">Nova Tarefa</h3>
+                <button onclick="closeTaskModal()" class="text-slate-400 hover:text-slate-600 transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form id="task-form" onsubmit="saveTask(event)" class="p-6 space-y-4">
+                <input type="hidden" id="task-id">
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Título da Tarefa *</label>
+                    <input type="text" id="task-title" required placeholder="Ex: Equalização de BID Capex" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                </div>
+
+                <!-- SELEÇÃO SEPARADA: USUÁRIO (EXECUTOR) vs GESTOR (COMUNICADO) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">
+                            <i class="fa-solid fa-user text-brand-500 mr-1"></i> Usuário Executor *
+                        </label>
+                        <select id="task-user" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none bg-white font-medium">
+                            <!-- Somente Usuários -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">
+                            <i class="fa-brands fa-microsoft text-teams-500 mr-1"></i> Gestor (Comunicado) *
+                        </label>
+                        <select id="task-manager" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teams-500 outline-none bg-white font-medium">
+                            <!-- Somente Gestores -->
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-end -mt-2">
+                    <button type="button" onclick="closeTaskModal(); openTeamModal();" class="text-[11px] font-semibold text-brand-600 hover:underline">
+                        + Cadastrar novo usuário ou gestor
+                    </button>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Descrição</label>
+                    <textarea id="task-desc" rows="2" placeholder="Detalhes da atividade..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none"></textarea>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Data de Início *</label>
+                        <input type="date" id="task-start" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Data Final / Prazo *</label>
+                        <input type="date" id="task-end" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                    </div>
+                </div>
+
+                <!-- CONTROLE DE PORCENTAGEM DA META -->
+                <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200/80 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <label for="task-progress-range" class="text-xs font-semibold text-slate-600 uppercase">Progresso da Meta (%)</label>
+                        <div class="flex items-center space-x-1">
+                            <input type="number" id="task-progress" min="0" max="100" value="0" oninput="syncProgressInputs(this.value)" class="w-16 px-2 py-1 text-right font-bold text-sm text-brand-600 border border-slate-300 rounded-md focus:ring-2 focus:ring-brand-500 outline-none bg-white">
+                            <span class="text-xs font-bold text-slate-500">%</span>
+                        </div>
+                    </div>
+                    <input type="range" id="task-progress-range" min="0" max="100" step="5" value="0" oninput="syncProgressInputs(this.value)" class="w-full h-2 bg-slate-300 rounded-lg appearance-none cursor-pointer accent-brand-500">
+                    <div class="flex justify-between text-[10px] text-slate-400 font-medium px-0.5">
+                        <span>0%</span>
+                        <span>25%</span>
+                        <span>50%</span>
+                        <span>75%</span>
+                        <span>100%</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Status</label>
+                        <select id="task-status" onchange="syncStatusToProgress(this.value)" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none bg-white">
+                            <option value="A Fazer">A Fazer</option>
+                            <option value="Em Andamento">Em Andamento</option>
+                            <option value="Concluído">Concluído</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Prioridade</label>
+                        <select id="task-priority" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none bg-white">
+                            <option value="Baixa">Baixa</option>
+                            <option value="Média" selected>Média</option>
+                            <option value="Alta">Alta</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- CHECKBOX PARA DISPARO NO MICROSOFT TEAMS -->
+                <div class="flex items-start space-x-2.5 bg-indigo-50/80 border border-indigo-200/80 p-3 rounded-lg">
+                    <input type="checkbox" id="task-notify-auto" checked class="w-4 h-4 mt-0.5 text-teams-500 rounded border-slate-300 focus:ring-teams-500 cursor-pointer">
+                    <label for="task-notify-auto" class="text-xs font-medium text-slate-700 cursor-pointer leading-relaxed">
+                        <span class="font-bold text-teams-600"><i class="fa-brands fa-microsoft mr-1"></i> Disparar mensagens no Microsoft Teams:</span>
+                        <span class="block text-[11px] text-slate-600 mt-0.5">• Ao criar tarefa → Mensagem no Teams para o <b>Usuário Executor</b></span>
+                        <span class="block text-[11px] text-slate-600">• Ao concluir (100%) → Mensagem no Teams para o <b>Gestor</b></span>
+                    </label>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100">
+                    <button type="button" onclick="closeTaskModal()" class="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 text-sm hover:bg-slate-50 transition">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-medium text-sm rounded-lg shadow-sm transition">Salvar Tarefa</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE GERENCIAR USUÁRIOS, GESTORES E INTEGRAÇÃO TEAMS -->
+    <div id="team-modal" class="fixed inset-0 z-50 hidden bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white rounded-xl shadow-xl border border-slate-100 max-w-xl w-full overflow-hidden transform transition-all my-auto">
+            <div class="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-brands fa-microsoft text-teams-500 text-lg"></i>
+                    <h3 class="text-base font-bold text-slate-800">Usuários, Gestores & Integração Teams</h3>
+                </div>
+                <button onclick="closeTeamModal()" class="text-slate-400 hover:text-slate-600 transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Sub-Abas dentro do Modal -->
+            <div class="flex border-b border-slate-200 px-6 bg-slate-50/50 space-x-6">
+                <button type="button" onclick="switchModalSubTab('users')" id="subtab-btn-users" class="py-2.5 text-xs font-bold uppercase border-b-2 border-brand-600 text-brand-600">
+                    <i class="fa-solid fa-user mr-1"></i> Usuários (Executores)
+                </button>
+                <button type="button" onclick="switchModalSubTab('managers')" id="subtab-btn-managers" class="py-2.5 text-xs font-bold uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700">
+                    <i class="fa-solid fa-user-tie mr-1 text-teams-500"></i> Gestores (Somente Avisos)
+                </button>
+                <button type="button" onclick="switchModalSubTab('teams')" id="subtab-btn-teams" class="py-2.5 text-xs font-bold uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700">
+                    <i class="fa-solid fa-bolt mr-1 text-amber-500"></i> Webhook Teams
+                </button>
+            </div>
+
+            <div class="p-6">
+                <!-- SUB-ABA 1: USUÁRIOS (EXECUTORES) -->
+                <div id="subtab-users" class="space-y-4">
+                    <form onsubmit="addUser(event)" class="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-3">
+                        <h4 class="text-xs font-bold uppercase text-slate-600">Novo Usuário (Recebe novas tarefas no Teams e tem cor no Gantt)</h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                            <div class="sm:col-span-5">
+                                <input type="text" id="new-user-name" required placeholder="Nome (Ex: Carlos)" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none bg-white">
+                            </div>
+                            <div class="sm:col-span-5">
+                                <input type="email" id="new-user-email" required placeholder="E-mail Teams (@heineken.com)" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none bg-white">
+                            </div>
+                            <div class="sm:col-span-2 flex items-center justify-center">
+                                <input type="color" id="new-user-color" value="#2563eb" title="Cor da barra no Gantt" class="w-full h-9 p-0.5 border border-slate-300 rounded-lg cursor-pointer bg-white">
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between pt-1">
+                            <span class="text-[11px] text-slate-500">Cores rápidas:</span>
+                            <div class="flex space-x-1.5">
+                                <button type="button" onclick="setQuickColor('#008248')" class="w-5 h-5 rounded-full bg-[#008248] border border-white shadow-sm hover:scale-110 transition"></button>
+                                <button type="button" onclick="setQuickColor('#2563eb')" class="w-5 h-5 rounded-full bg-[#2563eb] border border-white shadow-sm hover:scale-110 transition"></button>
+                                <button type="button" onclick="setQuickColor('#7c3aed')" class="w-5 h-5 rounded-full bg-[#7c3aed] border border-white shadow-sm hover:scale-110 transition"></button>
+                                <button type="button" onclick="setQuickColor('#d97706')" class="w-5 h-5 rounded-full bg-[#d97706] border border-white shadow-sm hover:scale-110 transition"></button>
+                                <button type="button" onclick="setQuickColor('#db2777')" class="w-5 h-5 rounded-full bg-[#db2777] border border-white shadow-sm hover:scale-110 transition"></button>
+                                <button type="button" onclick="setQuickColor('#0891b2')" class="w-5 h-5 rounded-full bg-[#0891b2] border border-white shadow-sm hover:scale-110 transition"></button>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs rounded-lg shadow-sm transition">
+                            <i class="fa-solid fa-user-plus mr-1.5"></i> Cadastrar Usuário
+                        </button>
+                    </form>
+
+                    <div class="space-y-1.5">
+                        <h4 class="text-xs font-bold uppercase text-slate-500">Usuários Cadastrados (E-mail usado no Teams)</h4>
+                        <div id="users-list-container" class="max-h-52 overflow-y-auto custom-scrollbar divide-y divide-slate-100 border border-slate-200 rounded-xl">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-ABA 2: GESTORES (SOMENTE RECEBEM COMUNICADOS NO TEAMS) -->
+                <div id="subtab-managers" class="hidden space-y-4">
+                    <form onsubmit="addManager(event)" class="bg-indigo-50/50 p-4 rounded-xl border border-indigo-200/80 space-y-3">
+                        <div>
+                            <h4 class="text-xs font-bold uppercase text-teams-600">Novo Gestor (Apenas Recebe Comunicados de Conclusão)</h4>
+                            <p class="text-[11px] text-slate-500 mt-0.5">Gestores não entram no filtro de tarefas e não têm barras no Gantt; eles recebem a mensagem no Teams quando uma atividade chega a 100%.</p>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <input type="text" id="new-manager-name" required placeholder="Nome do Gestor (Ex: Rodrigo)" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teams-500 outline-none bg-white">
+                            <input type="email" id="new-manager-email" required placeholder="E-mail Teams (@heineken.com)" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teams-500 outline-none bg-white">
+                        </div>
+                        <button type="submit" class="w-full py-2 bg-teams-500 hover:bg-teams-600 text-white font-semibold text-xs rounded-lg shadow-sm transition">
+                            <i class="fa-solid fa-user-tie mr-1.5"></i> Cadastrar Gestor
+                        </button>
+                    </form>
+
+                    <div class="space-y-1.5">
+                        <h4 class="text-xs font-bold uppercase text-slate-500">Gestores Cadastrados</h4>
+                        <div id="managers-list-container" class="max-h-52 overflow-y-auto custom-scrollbar divide-y divide-slate-100 border border-slate-200 rounded-xl">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-ABA 3: CONFIGURAÇÃO DO MICROSOFT TEAMS -->
+                <div id="subtab-teams" class="hidden space-y-4">
+                    <div class="bg-slate-900 text-slate-200 p-4 rounded-xl space-y-3">
+                        <div class="flex items-center space-x-2 text-indigo-400">
+                            <i class="fa-brands fa-microsoft text-lg"></i>
+                            <h4 class="text-xs font-bold uppercase tracking-wider">Integração 100% Microsoft Teams</h4>
+                        </div>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            <b>Modo Padrão (Sem Webhook):</b> Ao criar ou concluir uma tarefa, o navegador abre diretamente o <b>chat do Microsoft Teams</b> com o destinatário (Usuário ou Gestor) e a mensagem pronta para enviar.
+                        </p>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            <b>Modo Silencioso (Com Webhook / Power Automate):</b> Cole abaixo a URL do gatilho HTTP do Power Automate para enviar a mensagem direto no chat do Teams sem abrir janelas.
+                        </p>
+                        <div class="space-y-2 pt-1">
+                            <label class="block text-[11px] font-semibold uppercase text-slate-400">URL do Webhook (Power Automate → Teams)</label>
+                            <input type="url" id="webhook-url-input" placeholder="https://prod-xx.westus.logic.azure.com:443/..." class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:ring-1 focus:ring-indigo-400 outline-none">
+                            <button type="button" onclick="saveWebhookConfig()" class="w-full py-2 bg-teams-500 hover:bg-teams-600 text-white font-semibold text-xs rounded-lg transition">
+                                Salvar Configuração do Teams
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CAIXA DE MENSAGENS / TOAST -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-800 text-white px-4 py-3 rounded-xl shadow-lg flex items-center space-x-3 pointer-events-none">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+        <span id="toast-message" class="text-sm font-medium">Operação realizada com sucesso!</span>
+    </div>
+
+    <!-- JAVASCRIPT DA APLICAÇÃO -->
+    <script>
+        // --- CHAVES DE ARMAZENAMENTO ---
+        const TASKS_STORAGE_KEY = 'taskflow_activities_db_v6';
+        const USERS_STORAGE_KEY = 'taskflow_users_db_v6';
+        const MANAGERS_STORAGE_KEY = 'taskflow_managers_db_v6';
+        const WEBHOOK_STORAGE_KEY = 'taskflow_teams_webhook_v6';
+
+        let tasks = [];
+        let users = [];     // Executores (aparecem no filtro e têm cor no Gantt)
+        let managers = [];  // Gestores (não criam tarefas, apenas recebem comunicados no Teams)
+        let webhookUrl = '';
+        let selectedUserId = 'ALL';
+        let draggedTaskId = null;
+
+        // --- USUÁRIOS EXECUTORES INICIAIS ---
+        const defaultUsers = [
+            { id: 'u1', name: 'Luiz Carlos', email: 'luiz.bacelar@heineken.com.br', color: '#008248' },
+            { id: 'u2', name: 'Pri', email: 'pri.procurement@heineken.com.br', color: '#2563eb' },
+            { id: 'u3', name: 'Mariana', email: 'mariana.projetos@heineken.com.br', color: '#7c3aed' },
+            { id: 'u4', name: 'Rafael', email: 'rafael.comprador@heineken.com.br', color: '#d97706' }
+        ];
+
+        // --- GESTORES INICIAIS (SOMENTE RECEBEM AVISOS NO TEAMS) ---
+        const defaultManagers = [
+            { id: 'm1', name: 'Gestor Suprimentos', email: 'gestor.suprimentos@heineken.com.br' },
+            { id: 'm2', name: 'Coordenação Central', email: 'coordenacao.central@heineken.com.br' }
+        ];
+
+        // --- TAREFAS DE EXEMPLO ---
+        const defaultTasks = [
+            {
+                id: '1',
+                userId: 'u1',
+                managerId: 'm1',
+                title: 'Planejamento e Escopo do Projeto',
+                desc: 'Definir entregáveis, recursos e estimativa de custos iniciais.',
+                start: formatDateOffset(-3),
+                end: formatDateOffset(2),
+                status: 'Em Andamento',
+                priority: 'Alta',
+                progress: 65
+            },
+            {
+                id: '2',
+                userId: 'u2',
+                managerId: 'm1',
+                title: 'Equalização de Propostas & BID',
+                desc: 'Consolidar planilhas de fornecedores e análise de TCO.',
+                start: formatDateOffset(-1),
+                end: formatDateOffset(4),
+                status: 'Em Andamento',
+                priority: 'Alta',
+                progress: 45
+            },
+            {
+                id: '3',
+                userId: 'u3',
+                managerId: 'm2',
+                title: 'Arquitetura e Automação RPA',
+                desc: 'Modelagem relacional e validação de regras de negócio.',
+                start: formatDateOffset(-5),
+                end: formatDateOffset(-1),
+                status: 'Concluído',
+                priority: 'Alta',
+                progress: 100
+            },
+            {
+                id: '4',
+                userId: 'u4',
+                managerId: 'm2',
+                title: 'Homologação de Fornecedores MRO',
+                desc: 'Revisão documental e cadastro técnico no sistema.',
+                start: formatDateOffset(1),
+                end: formatDateOffset(8),
+                status: 'Em Andamento',
+                priority: 'Média',
+                progress: 30
+            },
+            {
+                id: '5',
+                userId: 'u1',
+                managerId: 'm1',
+                title: 'Governança e Validação Final',
+                desc: 'Revisão de indicadores e apresentação executiva.',
+                start: formatDateOffset(5),
+                end: formatDateOffset(11),
+                status: 'A Fazer',
+                priority: 'Baixa',
+                progress: 0
+            }
+        ];
+
+        function formatDateOffset(days) {
+            const date = new Date();
+            date.setDate(date.getDate() + days);
+            return date.toISOString().split('T')[0];
+        }
+
+        // --- INICIALIZAÇÃO ---
+        window.onload = function() {
+            loadUsers();
+            loadManagers();
+            loadTasks();
+            webhookUrl = localStorage.getItem(WEBHOOK_STORAGE_KEY) || '';
+            renderAllViews();
+        };
+
+        function loadUsers() {
+            try {
+                const stored = localStorage.getItem(USERS_STORAGE_KEY);
+                users = stored ? JSON.parse(stored) : [...defaultUsers];
+                if (!stored) saveUsersToStorage();
+            } catch (e) {
+                users = [...defaultUsers];
+            }
+        }
+
+        function saveUsersToStorage() {
+            localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+        }
+
+        function loadManagers() {
+            try {
+                const stored = localStorage.getItem(MANAGERS_STORAGE_KEY);
+                managers = stored ? JSON.parse(stored) : [...defaultManagers];
+                if (!stored) saveManagersToStorage();
+            } catch (e) {
+                managers = [...defaultManagers];
+            }
+        }
+
+        function saveManagersToStorage() {
+            localStorage.setItem(MANAGERS_STORAGE_KEY, JSON.stringify(managers));
+        }
+
+        function loadTasks() {
+            try {
+                const stored = localStorage.getItem(TASKS_STORAGE_KEY);
+                if (stored) {
+                    tasks = JSON.parse(stored).map(t => ({
+                        ...t,
+                        userId: t.userId || users[0]?.id || 'u1',
+                        managerId: t.managerId || managers[0]?.id || 'm1',
+                        progress: typeof t.progress === 'number' ? t.progress : (t.status === 'Concluído' ? 100 : 0)
+                    }));
+                } else {
+                    tasks = [...defaultTasks];
+                    saveTasksToStorage();
+                }
+            } catch (e) {
+                tasks = [...defaultTasks];
+            }
+        }
+
+        function saveTasksToStorage() {
+            localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
+        }
+
+        function saveWebhookConfig() {
+            const input = document.getElementById('webhook-url-input');
+            webhookUrl = input.value.trim();
+            localStorage.setItem(WEBHOOK_STORAGE_KEY, webhookUrl);
+            showToast(webhookUrl ? 'Webhook do Teams salvo!' : 'Webhook removido (abrindo chat direto do Teams).', 'teams');
+        }
+
+        function resetDefaultData() {
+            if (confirm("Deseja restaurar os usuários, gestores e tarefas de exemplo?")) {
+                users = [...defaultUsers];
+                managers = [...defaultManagers];
+                tasks = [...defaultTasks];
+                selectedUserId = 'ALL';
+                saveUsersToStorage();
+                saveManagersToStorage();
+                saveTasksToStorage();
+                renderAllViews();
+                showToast("Dados restaurados com sucesso!");
+            }
+        }
+
+        // --- MOTOR 100% MICROSOFT TEAMS (CRIAÇÃO -> USUÁRIO | CONCLUSÃO -> GESTOR) ---
+        async function triggerTeamsNotification(eventType, task) {
+            const executor = getUserById(task.userId);
+            const manager = getManagerById(task.managerId);
+
+            let recipient = null;
+            let recipientRole = '';
+            let teamsMessage = '';
+
+            if (eventType === 'TASK_CREATED') {
+                recipient = executor;
+                recipientRole = 'Usuário Executor';
+                teamsMessage = `Olá, ${executor.name}! 📋 Uma nova tarefa foi atribuída a você no painel de Gestão de Atividades:\n` +
+                               `• Atividade: "${task.title}"\n` +
+                               `• Prazo: ${formatDateBR(task.start)} até ${formatDateBR(task.end)} | Prioridade: ${task.priority}\n` +
+                               `• Gestor acompanhante: ${manager.name}` +
+                               (task.desc ? `\n• Detalhes: ${task.desc}` : '');
+            } else if (eventType === 'TASK_COMPLETED') {
+                recipient = manager;
+                recipientRole = 'Gestor';
+                teamsMessage = `Olá, ${manager.name}! ✅ A atividade "${task.title}" (Executor: ${executor.name} | Prazo: ${formatDateBR(task.end)}) foi 100% CONCLUÍDA no painel de Gestão de Atividades.`;
+            }
+
+            if (!recipient || !recipient.email) {
+                showToast(`Aviso: O ${recipientRole} não possui e-mail do Teams cadastrado.`, 'rose');
+                return;
+            }
+
+            // 1. Disparo silencioso via Webhook (Power Automate -> Microsoft Teams)
+            if (webhookUrl) {
+                try {
+                    await fetch(webhookUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            event: eventType,
+                            channel: 'TEAMS',
+                            recipientRole: recipientRole,
+                            recipientName: recipient.name,
+                            recipientEmail: recipient.email,
+                            executorName: executor.name,
+                            executorEmail: executor.email,
+                            managerName: manager.name,
+                            managerEmail: manager.email,
+                            taskTitle: task.title,
+                            taskDesc: task.desc || '',
+                            taskStart: formatDateBR(task.start),
+                            taskEnd: formatDateBR(task.end),
+                            taskPriority: task.priority,
+                            message: teamsMessage
+                        })
+                    });
+                    showToast(`Mensagem enviada no Teams para ${recipient.name}!`, 'teams');
+                    return;
+                } catch (err) {
+                    console.error('Erro no Webhook Teams, abrindo Deep Link:', err);
+                }
+            }
+
+            // 2. Fallback: Deep Link Oficial do Microsoft Teams (abre o chat direto com a mensagem pronta)
+            const teamsChatUrl = `https://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(recipient.email)}&message=${encodeURIComponent(teamsMessage)}`;
+            window.open(teamsChatUrl, '_blank');
+            showToast(`Abrindo chat do Teams com ${recipient.name}...`, 'teams');
+        }
+
+        // --- HELPERS DE USUÁRIOS E GESTORES ---
+        function getUserById(userId) {
+            return users.find(u => u.id === userId) || { id: 'unknown', name: 'Não definido', email: '', color: '#64748b' };
+        }
+
+        function getManagerById(managerId) {
+            return managers.find(m => m.id === managerId) || { id: 'unknown', name: 'Sem Gestor', email: '' };
+        }
+
+        function getInitials(name) {
+            return name
+                .split(' ')
+                .map(n => n[0])
+                .slice(0, 2)
+                .join('')
+                .toUpperCase();
+        }
+
+        // --- RENDERIZAÇÃO DAS FLAGS DE USUÁRIOS (EXECUTORES) NO TOPO ---
+        function renderUserFlags() {
+            const container = document.getElementById('user-flags-bar');
+            container.innerHTML = '';
+
+            const isAll = selectedUserId === 'ALL';
+            const allBtn = document.createElement('button');
+            allBtn.onclick = () => selectUserFilter('ALL');
+            allBtn.className = `px-3 py-1 rounded-full text-xs font-semibold transition-all flex items-center space-x-1.5 whitespace-nowrap border ${
+                isAll
+                    ? 'bg-emerald-500 text-white border-emerald-400 shadow-sm'
+                    : 'bg-slate-800/90 text-slate-300 border-slate-700 hover:bg-slate-700'
+            }`;
+            allBtn.innerHTML = `
+                <span>Todos</span>
+                <span class="text-[10px] px-1.5 py-0.2 rounded-full ${isAll ? 'bg-black/20 text-white' : 'bg-slate-700 text-slate-300'}">${tasks.length}</span>
+            `;
+            container.appendChild(allBtn);
+
+            users.forEach(user => {
+                const isSelected = selectedUserId === user.id;
+                const userTaskCount = tasks.filter(t => t.userId === user.id).length;
+
+                const btn = document.createElement('button');
+                btn.onclick = () => selectUserFilter(user.id);
+                btn.className = `px-3 py-1 rounded-full text-xs font-semibold transition-all flex items-center space-x-2 whitespace-nowrap border ${
+                    isSelected
+                        ? 'text-white shadow-md scale-[1.02]'
+                        : 'bg-slate-800/90 text-slate-300 border-slate-700 hover:bg-slate-700'
+                }`;
+
+                if (isSelected) {
+                    btn.style.backgroundColor = user.color;
+                    btn.style.borderColor = '#ffffff80';
+                }
+
+                btn.innerHTML = `
+                    <span class="w-2.5 h-2.5 rounded-full border border-white/60 shrink-0" style="background-color: ${user.color}"></span>
+                    <span>${escapeHTML(user.name)}</span>
+                    <span class="text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-black/25 text-white' : 'bg-slate-700 text-slate-300'}">${userTaskCount}</span>
+                `;
+                container.appendChild(btn);
+            });
+
+            const addQuickBtn = document.createElement('button');
+            addQuickBtn.onclick = () => { openTeamModal(); switchModalSubTab('users'); };
+            addQuickBtn.title = 'Cadastrar novo usuário';
+            addQuickBtn.className = 'w-6 h-6 rounded-full bg-slate-800 hover:bg-brand-500 text-slate-300 hover:text-white border border-slate-700 flex items-center justify-center text-xs transition shrink-0';
+            addQuickBtn.innerHTML = '<i class="fa-solid fa-plus"></i>';
+            container.appendChild(addQuickBtn);
+        }
+
+        function selectUserFilter(userId) {
+            selectedUserId = userId;
+            renderAllViews();
+        }
+
+        // --- GERENCIAMENTO DO MODAL DE EQUIPE (USUÁRIOS + GESTORES + TEAMS) ---
+        function openTeamModal() {
+            renderUsersModalList();
+            renderManagersModalList();
+            document.getElementById('webhook-url-input').value = webhookUrl;
+            document.getElementById('team-modal').classList.remove('hidden');
+        }
+
+        function closeTeamModal() {
+            document.getElementById('team-modal').classList.add('hidden');
+        }
+
+        function switchModalSubTab(tab) {
+            ['users', 'managers', 'teams'].forEach(t => {
+                document.getElementById(`subtab-${t}`).classList.add('hidden');
+                const btn = document.getElementById(`subtab-btn-${t}`);
+                btn.classList.remove('border-brand-600', 'text-brand-600');
+                btn.classList.add('border-transparent', 'text-slate-500');
+            });
+
+            document.getElementById(`subtab-${tab}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`subtab-btn-${tab}`);
+            activeBtn.classList.remove('border-transparent', 'text-slate-500');
+            activeBtn.classList.add('border-brand-600', 'text-brand-600');
+        }
+
+        function setQuickColor(hex) {
+            document.getElementById('new-user-color').value = hex;
+        }
+
+        // CRUD Usuários Executores
+        function addUser(e) {
+            e.preventDefault();
+            const name = document.getElementById('new-user-name').value.trim();
+            const email = document.getElementById('new-user-email').value.trim();
+            const color = document.getElementById('new-user-color').value;
+            if (!name || !email) return;
+
+            users.push({ id: 'u_' + Date.now(), name, email, color });
+            saveUsersToStorage();
+            document.getElementById('new-user-name').value = '';
+            document.getElementById('new-user-email').value = '';
+            renderUsersModalList();
+            renderAllViews();
+            showToast(`Usuário "${name}" cadastrado!`);
+        }
+
+        function updateUserColor(userId, newColor) {
+            const user = users.find(u => u.id === userId);
+            if (user) {
+                user.color = newColor;
+                saveUsersToStorage();
+                renderAllViews();
+            }
+        }
+
+        function updateUserEmail(userId, newEmail) {
+            const user = users.find(u => u.id === userId);
+            if (user) {
+                user.email = newEmail.trim();
+                saveUsersToStorage();
+                showToast(`E-mail Teams de ${user.name} atualizado!`, 'teams');
+            }
+        }
+
+        function deleteUser(userId) {
+            if (users.length <= 1) {
+                alert('É necessário manter pelo menos 1 usuário executor cadastrado.');
+                return;
+            }
+            const user = getUserById(userId);
+            if (confirm(`Remover o usuário "${user.name}"? As tarefas dele serão transferidas para "${users[0].name}".`)) {
+                const fallbackId = users.find(u => u.id !== userId).id;
+                tasks.forEach(t => { if (t.userId === userId) t.userId = fallbackId; });
+                users = users.filter(u => u.id !== userId);
+                if (selectedUserId === userId) selectedUserId = 'ALL';
+
+                saveUsersToStorage();
+                saveTasksToStorage();
+                renderUsersModalList();
+                renderAllViews();
+                showToast(`Usuário "${user.name}" removido.`, 'rose');
+            }
+        }
+
+        function renderUsersModalList() {
+            const container = document.getElementById('users-list-container');
+            container.innerHTML = '';
+
+            users.forEach(user => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between gap-2 p-3 bg-white hover:bg-slate-50 transition';
+                row.innerHTML = `
+                    <div class="flex items-center space-x-2.5 flex-1 min-w-0">
+                        <input type="color" value="${user.color}" onchange="updateUserColor('${user.id}', this.value)" title="Alterar cor da barra" class="w-7 h-7 rounded-full border border-slate-200 cursor-pointer bg-transparent shrink-0">
+                        <div class="flex-1 min-w-0">
+                            <div class="text-xs font-bold text-slate-800 truncate">${escapeHTML(user.name)}</div>
+                            <input type="email" value="${escapeHTML(user.email || '')}" onchange="updateUserEmail('${user.id}', this.value)" class="w-full text-[11px] text-slate-600 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-brand-500 outline-none py-0.5">
+                        </div>
+                    </div>
+                    <button type="button" onclick="deleteUser('${user.id}')" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition shrink-0">
+                        <i class="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        // CRUD Gestores
+        function addManager(e) {
+            e.preventDefault();
+            const name = document.getElementById('new-manager-name').value.trim();
+            const email = document.getElementById('new-manager-email').value.trim();
+            if (!name || !email) return;
+
+            managers.push({ id: 'm_' + Date.now(), name, email });
+            saveManagersToStorage();
+            document.getElementById('new-manager-name').value = '';
+            document.getElementById('new-manager-email').value = '';
+            renderManagersModalList();
+            renderAllViews();
+            showToast(`Gestor "${name}" cadastrado para avisos no Teams!`, 'teams');
+        }
+
+        function updateManagerEmail(managerId, newEmail) {
+            const mgr = managers.find(m => m.id === managerId);
+            if (mgr) {
+                mgr.email = newEmail.trim();
+                saveManagersToStorage();
+                showToast(`E-mail Teams de ${mgr.name} atualizado!`, 'teams');
+            }
+        }
+
+        function deleteManager(managerId) {
+            if (managers.length <= 1) {
+                alert('É necessário manter pelo menos 1 gestor cadastrado.');
+                return;
+            }
+            const mgr = getManagerById(managerId);
+            if (confirm(`Remover o gestor "${mgr.name}"?`)) {
+                const fallbackId = managers.find(m => m.id !== managerId).id;
+                tasks.forEach(t => { if (t.managerId === managerId) t.managerId = fallbackId; });
+                managers = managers.filter(m => m.id !== managerId);
+
+                saveManagersToStorage();
+                saveTasksToStorage();
+                renderManagersModalList();
+                renderAllViews();
+                showToast(`Gestor "${mgr.name}" removido.`, 'rose');
+            }
+        }
+
+        function renderManagersModalList() {
+            const container = document.getElementById('managers-list-container');
+            container.innerHTML = '';
+
+            managers.forEach(mgr => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between gap-2 p-3 bg-white hover:bg-slate-50 transition';
+                row.innerHTML = `
+                    <div class="flex items-center space-x-2.5 flex-1 min-w-0">
+                        <div class="w-7 h-7 rounded-full bg-indigo-100 text-teams-600 flex items-center justify-center shrink-0">
+                            <i class="fa-brands fa-microsoft text-xs"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-xs font-bold text-slate-800 truncate">${escapeHTML(mgr.name)}</div>
+                            <input type="email" value="${escapeHTML(mgr.email || '')}" onchange="updateManagerEmail('${mgr.id}', this.value)" class="w-full text-[11px] text-slate-600 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-teams-500 outline-none py-0.5">
+                        </div>
+                    </div>
+                    <button type="button" onclick="deleteManager('${mgr.id}')" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition shrink-0">
+                        <i class="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        // --- SINCRONIZAÇÃO DE PROGRESSO E STATUS NO MODAL ---
+        function syncProgressInputs(val) {
+            let num = parseInt(val, 10);
+            if (isNaN(num)) num = 0;
+            if (num < 0) num = 0;
+            if (num > 100) num = 100;
+
+            document.getElementById('task-progress').value = num;
+            document.getElementById('task-progress-range').value = num;
+
+            const statusSelect = document.getElementById('task-status');
+            if (num === 100) {
+                statusSelect.value = 'Concluído';
+            } else if (num > 0 && statusSelect.value === 'A Fazer') {
+                statusSelect.value = 'Em Andamento';
+            } else if (num === 0 && statusSelect.value === 'Concluído') {
+                statusSelect.value = 'A Fazer';
+            }
+        }
+
+        function syncStatusToProgress(status) {
+            const progressInput = document.getElementById('task-progress');
+            const currentVal = parseInt(progressInput.value, 10) || 0;
+
+            if (status === 'Concluído' && currentVal < 100) {
+                syncProgressInputs(100);
+            } else if (status === 'A Fazer' && currentVal > 0) {
+                syncProgressInputs(0);
+            } else if (status === 'Em Andamento' && (currentVal === 0 || currentVal === 100)) {
+                syncProgressInputs(50);
+            }
+        }
+
+        // --- GERENCIAMENTO DE ABAS ---
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('border-emerald-400', 'text-emerald-400');
+                btn.classList.add('border-transparent', 'text-slate-400');
+            });
+
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-btn-${tabName}`);
+            activeBtn.classList.remove('border-transparent', 'text-slate-400');
+            activeBtn.classList.add('border-emerald-400', 'text-emerald-400');
+
+            if (tabName === 'gantt') renderGanttChart();
+        }
+
+        // --- FILTROS DE PESQUISA + FILTRO DE USUÁRIO ---
+        function getFilteredTasks() {
+            const search = document.getElementById('table-search')?.value.toLowerCase() || '';
+            const statusFilter = document.getElementById('filter-status')?.value || 'ALL';
+            const priorityFilter = document.getElementById('filter-priority')?.value || 'ALL';
+
+            return tasks.filter(task => {
+                const matchesUser = selectedUserId === 'ALL' || task.userId === selectedUserId;
+                const matchesSearch = task.title.toLowerCase().includes(search) || (task.desc && task.desc.toLowerCase().includes(search));
+                const matchesStatus = statusFilter === 'ALL' || task.status === statusFilter;
+                const matchesPriority = priorityFilter === 'ALL' || task.priority === priorityFilter;
+                return matchesUser && matchesSearch && matchesStatus && matchesPriority;
+            });
+        }
+
+        function renderAllViews() {
+            renderUserFlags();
+            const filteredTasks = getFilteredTasks();
+            renderTable(filteredTasks);
+            renderGanttChart(filteredTasks);
+            renderKanban(filteredTasks);
+
+            document.getElementById('badge-total-tasks').textContent = filteredTasks.length;
+        }
+
+        // --- ABA 1: TABELA DE TAREFAS ---
+        function renderTable(taskList) {
+            const tbody = document.getElementById('task-table-body');
+            const emptyState = document.getElementById('table-empty');
+            tbody.innerHTML = '';
+
+            if (taskList.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            taskList.forEach(task => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50/80 transition border-b border-slate-100 last:border-0";
+                
+                const user = getUserById(task.userId);
+                const manager = getManagerById(task.managerId);
+                const startDateStr = formatDateBR(task.start);
+                const endDateStr = formatDateBR(task.end);
+                const progress = task.progress || 0;
+
+                tr.innerHTML = `
+                    <td class="p-4">
+                        <div class="font-semibold text-slate-800">${escapeHTML(task.title)}</div>
+                        <div class="text-xs text-slate-500 mt-0.5 line-clamp-1">${escapeHTML(task.desc || 'Sem descrição')}</div>
+                    </td>
+                    <td class="p-4 whitespace-nowrap">
+                        <div class="flex flex-col space-y-1">
+                            <span class="inline-flex items-center space-x-1.5 text-xs font-semibold text-slate-700">
+                                <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${user.color}"></span>
+                                <span>${escapeHTML(user.name)}</span>
+                            </span>
+                            <span class="text-[11px] text-teams-600 font-medium flex items-center">
+                                <i class="fa-brands fa-microsoft mr-1 text-[10px]"></i> Gestor: ${escapeHTML(manager.name)}
+                            </span>
+                        </div>
+                    </td>
+                    <td class="p-4 whitespace-nowrap text-xs text-slate-600">
+                        <div><i class="fa-regular fa-calendar text-slate-400 mr-1.5"></i>Início: ${startDateStr}</div>
+                        <div class="mt-0.5"><i class="fa-solid fa-flag-checkered text-slate-400 mr-1.5"></i>Fim: ${endDateStr}</div>
+                    </td>
+                    <td class="p-4 whitespace-nowrap">
+                        <div class="flex items-center space-x-2 w-28">
+                            <div class="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                                <div class="h-full transition-all duration-300" style="width: ${progress}%; background-color: ${user.color}"></div>
+                            </div>
+                            <span class="text-xs font-bold text-slate-700 w-9 text-right">${progress}%</span>
+                        </div>
+                    </td>
+                    <td class="p-4 whitespace-nowrap">
+                        ${getPriorityBadge(task.priority)}
+                    </td>
+                    <td class="p-4 whitespace-nowrap">
+                        ${getStatusBadge(task.status)}
+                    </td>
+                    <td class="p-4 whitespace-nowrap text-right space-x-1">
+                        <button onclick="manualTeamsPing('${task.id}')" class="p-2 text-slate-400 hover:text-teams-500 hover:bg-indigo-50 rounded-lg transition" title="Enviar status no Teams para o Gestor">
+                            <i class="fa-brands fa-microsoft"></i>
+                        </button>
+                        <button onclick="openTaskModal('${task.id}')" class="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition" title="Editar">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        <button onclick="deleteTask('${task.id}')" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Excluir">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function manualTeamsPing(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+            const executor = getUserById(task.userId);
+            const manager = getManagerById(task.managerId);
+
+            if (!manager || !manager.email) {
+                showToast('Gestor sem e-mail do Teams cadastrado.', 'rose');
+                return;
+            }
+
+            const msg = `Olá, ${manager.name}! Atualização da atividade "${task.title}" (Executor: ${executor.name}): está em ${task.progress}% (${task.status}), com prazo até ${formatDateBR(task.end)}.`;
+            const teamsChatUrl = `https://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(manager.email)}&message=${encodeURIComponent(msg)}`;
+            window.open(teamsChatUrl, '_blank');
+            showToast(`Abrindo chat no Teams com ${manager.name}...`, 'teams');
+        }
+
+        // --- ABA 2: GRÁFICO DE GANTT ---
+        function renderGanttChart(taskList = getFilteredTasks()) {
+            const wrapper = document.getElementById('gantt-chart-wrapper');
+            const legendContainer = document.getElementById('gantt-user-legend');
+            wrapper.innerHTML = '';
+
+            legendContainer.innerHTML = `
+                <span class="flex items-center text-slate-500"><span class="w-3 h-3 rounded-sm bg-slate-400 mr-1.5"></span> Restante</span>
+                <span class="h-3 w-px bg-slate-300"></span>
+            `;
+            users.forEach(u => {
+                legendContainer.innerHTML += `
+                    <span class="flex items-center">
+                        <span class="w-3 h-3 rounded-full mr-1.5" style="background-color: ${u.color}"></span>
+                        ${escapeHTML(u.name)}
+                    </span>
+                `;
+            });
+
+            if (taskList.length === 0) {
+                wrapper.innerHTML = `<div class="p-8 text-center text-slate-400 text-sm">Nenhuma tarefa para exibir na linha do tempo.</div>`;
+                return;
+            }
+
+            let minDate = new Date();
+            let maxDate = new Date();
+
+            taskList.forEach((task, index) => {
+                const s = new Date(task.start + 'T00:00:00');
+                const e = new Date(task.end + 'T00:00:00');
+                if (index === 0 || s < minDate) minDate = new Date(s);
+                if (index === 0 || e > maxDate) maxDate = new Date(e);
+            });
+
+            minDate.setDate(minDate.getDate() - 2);
+            maxDate.setDate(maxDate.getDate() + 5);
+
+            const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
+            
+            const ganttGrid = document.createElement('div');
+            ganttGrid.className = 'gantt-grid gap-y-3';
+            ganttGrid.style.setProperty('--gantt-days', totalDays);
+
+            const headerLabel = document.createElement('div');
+            headerLabel.className = 'font-bold text-xs text-slate-500 uppercase tracking-wider pb-2 border-b border-slate-200 sticky left-0 bg-white z-10';
+            headerLabel.textContent = 'Tarefa / Executor';
+            ganttGrid.appendChild(headerLabel);
+
+            let currDate = new Date(minDate);
+            for (let i = 0; i < totalDays; i++) {
+                const dayHeader = document.createElement('div');
+                const isWeekend = currDate.getDay() === 0 || currDate.getDay() === 6;
+                const isToday = isSameDay(currDate, new Date());
+
+                dayHeader.className = `text-center text-[10px] pb-2 border-b border-slate-200 flex flex-col justify-end ${
+                    isToday ? 'bg-brand-50 font-bold text-brand-600 rounded-t' : isWeekend ? 'bg-slate-50 text-slate-400' : 'text-slate-500'
+                }`;
+
+                dayHeader.innerHTML = `
+                    <span>${currDate.toLocaleDateString('pt-BR', { weekday: 'narrow' })}</span>
+                    <span class="font-semibold text-xs">${currDate.getDate()}</span>
+                `;
+                ganttGrid.appendChild(dayHeader);
+
+                currDate.setDate(currDate.getDate() + 1);
+            }
+
+            taskList.forEach(task => {
+                const user = getUserById(task.userId);
+                const manager = getManagerById(task.managerId);
+                const taskStart = new Date(task.start + 'T00:00:00');
+                const taskEnd = new Date(task.end + 'T00:00:00');
+                const progress = Math.min(100, Math.max(0, task.progress || 0));
+
+                const nameCol = document.createElement('div');
+                nameCol.className = 'text-xs font-medium text-slate-700 pr-3 flex items-center justify-between bg-white sticky left-0 z-10';
+                nameCol.title = `${task.title} | Executor: ${user.name} | Gestor Teams: ${manager.name} (${progress}%)`;
+                nameCol.innerHTML = `
+                    <div class="flex items-center space-x-2 min-w-0 pr-2">
+                        <span class="w-5 h-5 rounded-full text-[9px] font-bold text-white flex items-center justify-center shrink-0 shadow-xs" style="background-color: ${user.color}">
+                            ${getInitials(user.name)}
+                        </span>
+                        <span class="truncate">${escapeHTML(task.title)}</span>
+                    </div>
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 bg-slate-100 text-slate-700">${progress}%</span>
+                `;
+                ganttGrid.appendChild(nameCol);
+
+                const startOffset = Math.max(0, Math.ceil((taskStart - minDate) / (1000 * 60 * 60 * 24)));
+                const duration = Math.max(1, Math.ceil((taskEnd - taskStart) / (1000 * 60 * 60 * 24)) + 1);
+
+                const barArea = document.createElement('div');
+                barArea.className = 'relative flex items-center h-8 bg-slate-50/50 rounded-lg border border-slate-100';
+                barArea.style.gridColumn = `span ${totalDays}`;
+
+                const bar = document.createElement('div');
+                bar.className = `absolute h-6 rounded-md bg-slate-400 text-white text-[11px] font-medium overflow-hidden shadow-sm transition-all duration-200 hover:brightness-105 cursor-pointer group`;
+                bar.style.left = `calc(${(startOffset / totalDays) * 100}% + 2px)`;
+                bar.style.width = `calc(${(duration / totalDays) * 100}% - 4px)`;
+                bar.title = `${task.title} | Executor: ${user.name} | Gestor: ${manager.name} | Progresso: ${progress}%`;
+
+                bar.onclick = () => openTaskModal(task.id);
+
+                bar.innerHTML = `
+                    <div class="h-full transition-all duration-500 ease-out" style="width: ${progress}%; background-color: ${user.color}"></div>
+                    <div class="absolute inset-0 px-2 flex items-center justify-between pointer-events-none">
+                        <span class="truncate pr-1 drop-shadow-sm">${escapeHTML(task.title)}</span>
+                        <span class="text-[10px] font-bold bg-black/30 px-1.5 py-0.2 rounded whitespace-nowrap ml-1">${progress}%</span>
+                    </div>
+                `;
+
+                barArea.appendChild(bar);
+                ganttGrid.appendChild(barArea);
+            });
+
+            wrapper.appendChild(ganttGrid);
+        }
+
+        // --- ABA 3: QUADRO KANBAN ---
+        function renderKanban(taskList = getFilteredTasks()) {
+            const cols = {
+                'A Fazer': document.getElementById('kanban-todo'),
+                'Em Andamento': document.getElementById('kanban-doing'),
+                'Concluído': document.getElementById('kanban-done')
+            };
+
+            const counts = { 'A Fazer': 0, 'Em Andamento': 0, 'Concluído': 0 };
+
+            Object.values(cols).forEach(col => col.innerHTML = '');
+
+            taskList.forEach(task => {
+                const user = getUserById(task.userId);
+                const manager = getManagerById(task.managerId);
+                const progress = task.progress || 0;
+
+                const card = document.createElement('div');
+                card.className = "bg-white p-4 rounded-xl shadow-sm border border-slate-200/80 hover:shadow-md transition cursor-grab active:cursor-grabbing space-y-3";
+                card.draggable = true;
+                card.dataset.id = task.id;
+
+                card.ondragstart = (e) => {
+                    draggedTaskId = task.id;
+                    card.classList.add('kanban-ghost');
+                    e.dataTransfer.setData('text/plain', task.id);
+                };
+                card.ondragend = () => {
+                    card.classList.remove('kanban-ghost');
+                };
+
+                card.innerHTML = `
+                    <div class="flex items-start justify-between gap-2">
+                        <h4 class="font-semibold text-slate-800 text-sm leading-snug">${escapeHTML(task.title)}</h4>
+                        ${getPriorityBadge(task.priority)}
+                    </div>
+                    ${task.desc ? `<p class="text-xs text-slate-500 line-clamp-2">${escapeHTML(task.desc)}</p>` : ''}
+                    
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-[10px] font-semibold text-slate-500">
+                            <span>Progresso</span>
+                            <span class="text-slate-700">${progress}%</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                            <div class="h-full transition-all duration-300" style="width: ${progress}%; background-color: ${user.color}"></div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-100">
+                        <div class="flex flex-col space-y-0.5">
+                            <span class="inline-flex items-center space-x-1 text-slate-600 font-medium">
+                                <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${user.color}"></span>
+                                <span>${escapeHTML(user.name)}</span>
+                            </span>
+                            <span class="text-[10px] text-teams-600">
+                                <i class="fa-brands fa-microsoft mr-1"></i>Gestor: ${escapeHTML(manager.name)}
+                            </span>
+                        </div>
+                        <div class="flex items-center space-x-1">
+                            <span class="mr-1"><i class="fa-regular fa-clock mr-1"></i>${formatDateBR(task.end)}</span>
+                            <button onclick="openTaskModal('${task.id}')" class="p-1 hover:text-brand-600 rounded">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button onclick="deleteTask('${task.id}')" class="p-1 hover:text-rose-600 rounded">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                if (cols[task.status]) {
+                    cols[task.status].appendChild(card);
+                    counts[task.status]++;
+                }
+            });
+
+            document.getElementById('count-todo').textContent = counts['A Fazer'];
+            document.getElementById('count-doing').textContent = counts['Em Andamento'];
+            document.getElementById('count-done').textContent = counts['Concluído'];
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('bg-slate-200/50');
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('bg-slate-200/50');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const col = e.currentTarget;
+            col.classList.remove('bg-slate-200/50');
+
+            const newStatus = col.dataset.status;
+            if (draggedTaskId && newStatus) {
+                const task = tasks.find(t => t.id === draggedTaskId);
+                if (task && task.status !== newStatus) {
+                    const wasCompleted = task.status === 'Concluído';
+                    task.status = newStatus;
+                    if (newStatus === 'Concluído') task.progress = 100;
+                    if (newStatus === 'A Fazer') task.progress = 0;
+                    if (newStatus === 'Em Andamento' && (task.progress === 0 || task.progress === 100)) task.progress = 50;
+
+                    saveTasksToStorage();
+                    renderAllViews();
+
+                    if (newStatus === 'Concluído' && !wasCompleted) {
+                        triggerTeamsNotification('TASK_COMPLETED', task);
+                    } else {
+                        showToast(`Status alterado para "${newStatus}" (${task.progress}%)`);
+                    }
+                }
+            }
+            draggedTaskId = null;
+        }
+
+        // --- MANIPULAÇÃO DE MODAL & FORMULÁRIO DE TAREFA ---
+        function populateTaskDropdowns(selectedExecutorId = null, selectedManagerId = null) {
+            const userSelect = document.getElementById('task-user');
+            const managerSelect = document.getElementById('task-manager');
+            userSelect.innerHTML = '';
+            managerSelect.innerHTML = '';
+
+            users.forEach(u => {
+                const optUser = document.createElement('option');
+                optUser.value = u.id;
+                optUser.textContent = u.name;
+                if (selectedExecutorId && u.id === selectedExecutorId) optUser.selected = true;
+                userSelect.appendChild(optUser);
+            });
+
+            managers.forEach(m => {
+                const optMgr = document.createElement('option');
+                optMgr.value = m.id;
+                optMgr.textContent = `${m.name} (${m.email})`;
+                if (selectedManagerId && m.id === selectedManagerId) optMgr.selected = true;
+                managerSelect.appendChild(optMgr);
+            });
+        }
+
+        function openTaskModal(taskId = null) {
+            const modal = document.getElementById('task-modal');
+            const form = document.getElementById('task-form');
+            const titleEl = document.getElementById('modal-title');
+
+            form.reset();
+            document.getElementById('task-notify-auto').checked = true;
+
+            if (taskId) {
+                const task = tasks.find(t => t.id === taskId);
+                if (task) {
+                    titleEl.textContent = 'Editar Tarefa';
+                    document.getElementById('task-id').value = task.id;
+                    document.getElementById('task-title').value = task.title;
+                    document.getElementById('task-desc').value = task.desc || '';
+                    document.getElementById('task-start').value = task.start;
+                    document.getElementById('task-end').value = task.end;
+                    document.getElementById('task-status').value = task.status;
+                    document.getElementById('task-priority').value = task.priority;
+                    populateTaskDropdowns(task.userId, task.managerId);
+                    
+                    const prog = typeof task.progress === 'number' ? task.progress : 0;
+                    document.getElementById('task-progress').value = prog;
+                    document.getElementById('task-progress-range').value = prog;
+                }
+            } else {
+                titleEl.textContent = 'Nova Tarefa';
+                document.getElementById('task-id').value = '';
+                document.getElementById('task-start').value = new Date().toISOString().split('T')[0];
+                document.getElementById('task-end').value = formatDateOffset(3);
+                document.getElementById('task-progress').value = 0;
+                document.getElementById('task-progress-range').value = 0;
+
+                const defaultExecutor = selectedUserId !== 'ALL' ? selectedUserId : users[0]?.id;
+                const defaultManager = managers[0]?.id;
+                populateTaskDropdowns(defaultExecutor, defaultManager);
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeTaskModal() {
+            document.getElementById('task-modal').classList.add('hidden');
+        }
+
+        function saveTask(e) {
+            e.preventDefault();
+
+            const id = document.getElementById('task-id').value;
+            const title = document.getElementById('task-title').value.trim();
+            const userId = document.getElementById('task-user').value;
+            const managerId = document.getElementById('task-manager').value;
+            const desc = document.getElementById('task-desc').value.trim();
+            const start = document.getElementById('task-start').value;
+            const end = document.getElementById('task-end').value;
+            const status = document.getElementById('task-status').value;
+            const priority = document.getElementById('task-priority').value;
+            const progress = Math.min(100, Math.max(0, parseInt(document.getElementById('task-progress').value, 10) || 0));
+            const shouldNotify = document.getElementById('task-notify-auto').checked;
+
+            if (new Date(end) < new Date(start)) {
+                alert('A data de término/prazo não pode ser anterior à data de início.');
+                return;
+            }
+
+            if (id) {
+                const index = tasks.findIndex(t => t.id === id);
+                if (index !== -1) {
+                    const previousStatus = tasks[index].status;
+                    const updatedTask = { id, userId, managerId, title, desc, start, end, status, priority, progress };
+                    tasks[index] = updatedTask;
+
+                    saveTasksToStorage();
+                    renderAllViews();
+                    closeTaskModal();
+
+                    if (shouldNotify && status === 'Concluído' && previousStatus !== 'Concluído') {
+                        triggerTeamsNotification('TASK_COMPLETED', updatedTask);
+                    } else {
+                        showToast('Tarefa atualizada com sucesso!');
+                    }
+                }
+            } else {
+                const newTask = {
+                    id: Date.now().toString(),
+                    userId,
+                    managerId,
+                    title,
+                    desc,
+                    start,
+                    end,
+                    status,
+                    priority,
+                    progress
+                };
+                tasks.push(newTask);
+
+                saveTasksToStorage();
+                renderAllViews();
+                closeTaskModal();
+
+                if (shouldNotify) {
+                    if (status === 'Concluído') {
+                        triggerTeamsNotification('TASK_COMPLETED', newTask);
+                    } else {
+                        triggerTeamsNotification('TASK_CREATED', newTask);
+                    }
+                } else {
+                    showToast('Nova tarefa criada com sucesso!');
+                }
+            }
+        }
+
+        function deleteTask(id) {
+            if (confirm('Tem certeza de que deseja excluir esta atividade?')) {
+                tasks = tasks.filter(t => t.id !== id);
+                saveTasksToStorage();
+                renderAllViews();
+                showToast('Tarefa excluída!', 'rose');
+            }
+        }
+
+        // --- HELPERS E COMPONENTES VISUAIS ---
+        function getPriorityBadge(priority) {
+            const styles = {
+                'Alta': 'bg-rose-50 text-rose-700 border-rose-200',
+                'Média': 'bg-amber-50 text-amber-700 border-amber-200',
+                'Baixa': 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            };
+            return `<span class="px-2 py-0.5 text-xs font-semibold rounded-full border ${styles[priority] || styles['Média']}">${priority}</span>`;
+        }
+
+        function getStatusBadge(status) {
+            const styles = {
+                'A Fazer': 'bg-slate-100 text-slate-700 border-slate-200',
+                'Em Andamento': 'bg-emerald-50 text-emerald-800 border-emerald-300',
+                'Concluído': 'bg-emerald-100 text-emerald-900 border-emerald-400 font-semibold'
+            };
+            const icons = {
+                'A Fazer': 'fa-regular fa-circle',
+                'Em Andamento': 'fa-solid fa-spinner animate-spin text-[10px]',
+                'Concluído': 'fa-solid fa-check text-[10px]'
+            };
+
+            return `<span class="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-medium rounded-lg border ${styles[status]}">
+                <i class="${icons[status]} mr-1"></i>
+                <span>${status}</span>
+            </span>`;
+        }
+
+        function formatDateBR(dateStr) {
+            if (!dateStr) return '';
+            const [year, month, day] = dateStr.split('-');
+            return `${day}/${month}/${year}`;
+        }
+
+        function isSameDay(d1, d2) {
+            return d1.getFullYear() === d2.getFullYear() &&
+                   d1.getMonth() === d2.getMonth() &&
+                   d1.getDate() === d2.getDate();
+        }
+
+        function escapeHTML(str) {
+            return String(str).replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+
+        function showToast(msg, type = 'emerald') {
+            const toast = document.getElementById('toast');
+            const messageEl = document.getElementById('toast-message');
+            const iconEl = document.getElementById('toast-icon');
+
+            messageEl.textContent = msg;
+            
+            if (type === 'rose') {
+                iconEl.className = 'fa-solid fa-circle-xmark text-rose-400 text-lg';
+            } else if (type === 'teams') {
+                iconEl.className = 'fa-brands fa-microsoft text-indigo-400 text-lg';
+            } else {
+                iconEl.className = 'fa-solid fa-circle-check text-emerald-400 text-lg';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
